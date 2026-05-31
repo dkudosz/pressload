@@ -8,14 +8,14 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function EditPostPage({ params }: Props) {
+export default async function EditPagePage({ params }: Props) {
   const { id } = await params
 
-  const post = await db.query.posts.findFirst({
-    where: and(eq(posts.id, id), eq(posts.postType, 'post')),
+  const page = await db.query.posts.findFirst({
+    where: and(eq(posts.id, id), eq(posts.postType, 'page')),
   })
 
-  if (!post) notFound()
+  if (!page) notFound()
 
   const revisions = await db.query.posts.findMany({
     where: and(eq(posts.postParent, id), eq(posts.postType, 'revision')),
@@ -26,15 +26,15 @@ export default async function EditPostPage({ params }: Props) {
 
   return (
     <PostForm
-      postType="post"
+      postType="page"
       post={{
-        id: post.id,
-        postTitle: post.postTitle,
-        postContent: post.postContent,
-        postExcerpt: post.postExcerpt,
-        postName: post.postName,
-        postStatus: post.postStatus,
-        postDate: post.postDate,
+        id: page.id,
+        postTitle: page.postTitle,
+        postContent: page.postContent,
+        postExcerpt: page.postExcerpt,
+        postName: page.postName,
+        postStatus: page.postStatus,
+        postDate: page.postDate,
       }}
       revisions={revisions}
     />
