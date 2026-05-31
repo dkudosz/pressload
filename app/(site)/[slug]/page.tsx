@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { posts, users } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { sanitizeHtml } from '@/lib/utils/sanitize'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -43,7 +44,7 @@ export default async function StaticPage({ params }: Props) {
       {page.postContent ? (
         <div
           className="prose prose-neutral dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: page.postContent }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.postContent) }}
         />
       ) : (
         <p className="text-muted-foreground italic">No content yet.</p>

@@ -67,6 +67,7 @@ async function saveRevision(postId: string, authorId: string) {
     postAuthor: authorId,
     postTitle: original.postTitle,
     postContent: original.postContent,
+    postContentJson: original.postContentJson,
     postExcerpt: original.postExcerpt,
     postName: `${original.postName}-revision-v${Date.now()}`,
     postStatus: 'inherit',
@@ -88,12 +89,16 @@ export async function createPost(formData: FormData) {
   const rawDate = formData.get('postDate') as string
   const postDate = rawDate ? new Date(rawDate) : new Date()
 
+  const rawJson = formData.get('postContentJson') as string
+  const postContentJson = rawJson ? JSON.parse(rawJson) : null
+
   const [post] = await db
     .insert(posts)
     .values({
       postAuthor: session.user.id,
       postTitle: title,
       postContent: (formData.get('postContent') as string) ?? '',
+      postContentJson,
       postExcerpt: (formData.get('postExcerpt') as string) ?? '',
       postName: slug,
       postStatus: status,
@@ -134,11 +139,15 @@ export async function updatePost(id: string, formData: FormData) {
   const rawDate = formData.get('postDate') as string
   const postDate = rawDate ? new Date(rawDate) : new Date()
 
+  const rawJson = formData.get('postContentJson') as string
+  const postContentJson = rawJson ? JSON.parse(rawJson) : null
+
   await db
     .update(posts)
     .set({
       postTitle: title,
       postContent: (formData.get('postContent') as string) ?? '',
+      postContentJson,
       postExcerpt: (formData.get('postExcerpt') as string) ?? '',
       postName: slug,
       postStatus: status,
@@ -218,6 +227,7 @@ export async function restoreRevision(revisionId: string, postId: string) {
     .set({
       postTitle: revision.postTitle,
       postContent: revision.postContent,
+      postContentJson: revision.postContentJson,
       postExcerpt: revision.postExcerpt,
       postModified: new Date(),
       postModifiedGmt: new Date(),

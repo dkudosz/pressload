@@ -31,6 +31,7 @@ export default async function EditPagePage({ params }: Props) {
         id: page.id,
         postTitle: page.postTitle,
         postContent: page.postContent,
+        postContentJson: page.postContentJson,
         postExcerpt: page.postExcerpt,
         postName: page.postName,
         postStatus: page.postStatus,
