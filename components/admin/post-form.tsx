@@ -10,12 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, RotateCcw } from 'lucide-react'
+import { ArrowLeft, ImageIcon, RotateCcw, X } from 'lucide-react'
 import { createPost, updatePost, restoreRevision } from '@/lib/actions/posts'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { Editor } from '@/components/editor/Editor'
 import type { SaveStatus } from '@/components/editor/Editor'
+import { MediaPicker } from '@/components/admin/MediaPicker'
+import type { MediaItem } from '@/lib/actions/media'
 
 type PostStatus = 'draft' | 'publish' | 'pending' | 'private'
 
@@ -38,6 +40,8 @@ interface PostFormProps {
     postDate: Date | null
   }
   revisions?: Revision[]
+  featuredImageId?: string
+  featuredImageUrl?: string
 }
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'outline' }> = {
@@ -48,7 +52,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
   trash:   { label: 'Trash',     variant: 'destructive' as any },
 }
 
-export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
+export function PostForm({ postType, post, revisions = [], featuredImageId: initialFeaturedImageId, featuredImageUrl: initialFeaturedImageUrl }: PostFormProps) {
   const isEditing = !!post
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -65,6 +69,10 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
   const [publishDate, setPublishDate] = useState(
     post?.postDate ? new Date(post.postDate).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
   )
+  const [featuredImageId, setFeaturedImageId] = useState(initialFeaturedImageId ?? '')
+  const [featuredImageUrl, setFeaturedImageUrl] = useState(initialFeaturedImageUrl ?? '')
+  const [mediaPickerMode, setMediaPickerMode] = useState<'featured' | 'insert' | null>(null)
+  const insertImageCallbackRef = useRef<((src: string, alt?: string) => void) | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<SaveStatus>('idle')
 
@@ -89,7 +97,23 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
     fd.set('postStatus', overrideStatus ?? status)
     fd.set('postDate', publishDate)
     fd.set('postType', postType)
+    fd.set('thumbnailId', featuredImageId)
     return fd
+  }
+
+  function handleEditorImageButtonClick(insertFn: (src: string, alt?: string) => void) {
+    insertImageCallbackRef.current = insertFn
+    setMediaPickerMode('insert')
+  }
+
+  function handleMediaPickerSelect(item: MediaItem) {
+    if (mediaPickerMode === 'insert') {
+      insertImageCallbackRef.current?.(item.url, item.alt)
+    } else if (mediaPickerMode === 'featured') {
+      setFeaturedImageId(item.id)
+      setFeaturedImageUrl(item.url)
+    }
+    setMediaPickerMode(null)
   }
 
   function scheduleAutosave() {
@@ -245,6 +269,7 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
                   initialHtml={post?.postContent ?? undefined}
                   onChange={handleEditorChange}
                   saveStatus={autosaveStatus}
+                  onImageButtonClick={handleEditorImageButtonClick}
                 />
               </div>
             </CardContent>
@@ -333,6 +358,47 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
             </CardContent>
           </Card>
 
+          {/* Featured Image */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Featured Image</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {featuredImageUrl ? (
+                <div className="space-y-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={featuredImageUrl}
+                    alt="Featured image"
+                    className="w-full rounded-md border border-border object-cover"
+                    style={{ maxHeight: 160 }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-full text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => { setFeaturedImageId(''); setFeaturedImageUrl('') }}
+                  >
+                    <X className="h-3 w-3" />
+                    Remove featured image
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setMediaPickerMode('featured')}
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  Set Featured Image
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Revisions */}
           {isEditing && revisions.length > 0 && (
             <Card>
@@ -364,6 +430,13 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
           )}
         </div>
       </div>
+
+      <MediaPicker
+        open={mediaPickerMode !== null}
+        onClose={() => setMediaPickerMode(null)}
+        onSelect={handleMediaPickerSelect}
+        title={mediaPickerMode === 'featured' ? 'Set Featured Image' : 'Insert Image'}
+      />
     </div>
   )
 }

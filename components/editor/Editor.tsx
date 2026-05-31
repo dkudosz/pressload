@@ -48,9 +48,10 @@ interface EditorProps {
   onChange: (json: JSONContent, html: string) => void
   saveStatus?: SaveStatus
   className?: string
+  onImageButtonClick?: (insertImage: (src: string, alt?: string) => void) => void
 }
 
-export function Editor({ initialContent, initialHtml, onChange, saveStatus = 'idle', className }: EditorProps) {
+export function Editor({ initialContent, initialHtml, onChange, saveStatus = 'idle', className, onImageButtonClick }: EditorProps) {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -84,7 +85,7 @@ export function Editor({ initialContent, initialHtml, onChange, saveStatus = 'id
 
   return (
     <div className={cn('rounded-md border border-input bg-background overflow-hidden', className)}>
-      <Toolbar editor={editor} saveStatus={saveStatus} />
+      <Toolbar editor={editor} saveStatus={saveStatus} onImageButtonClick={onImageButtonClick} />
       <div className="border-t border-input">
         <EditorContent editor={editor} />
       </div>
