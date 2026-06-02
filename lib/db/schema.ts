@@ -169,6 +169,30 @@ export const options = pgTable('pl_options', {
   index('pl_options_autoload_idx').on(t.autoload),
 ])
 
+// ─── pl_menus ─────────────────────────────────────────────────────────────────
+export const menus = pgTable('pl_menus', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  name:      text('name').notNull(),
+  slug:      text('slug').notNull(),
+  location:  text('location').default(''), // primary | footer | social | ''
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => [
+  index('pl_menus_location_idx').on(t.location),
+])
+
+// ─── pl_menu_items ────────────────────────────────────────────────────────────
+export const menuItems = pgTable('pl_menu_items', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  menuId:    uuid('menu_id').notNull().references(() => menus.id, { onDelete: 'cascade' }),
+  parentId:  uuid('parent_id'),
+  label:     text('label').notNull(),
+  url:       text('url').default(''),
+  postId:    uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
+  menuOrder: integer('menu_order').notNull().default(0),
+}, (t) => [
+  index('pl_menu_items_menu_id_idx').on(t.menuId),
+])
+
 // ─── pl_links ─────────────────────────────────────────────────────────────────
 export const links = pgTable('pl_links', {
   linkId:          uuid('link_id').primaryKey().defaultRandom(),

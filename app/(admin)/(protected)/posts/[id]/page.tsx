@@ -26,12 +26,18 @@ export default async function EditPostPage({ params }: Props) {
     limit: 20,
   })
 
-  const [thumbnailId, allCategories, allTags, postCategories, postTags] = await Promise.all([
+  const [thumbnailId, allCategories, allTags, postCategories, postTags,
+    seoTitle, seoDescription, seoCanonical, seoNoindexRaw, seoOgImageUrl] = await Promise.all([
     getPostMeta(id, '_thumbnail_id', true) as Promise<string>,
     getTerms('category'),
     getTerms('post_tag'),
     getPostTerms(id, 'category'),
     getPostTerms(id, 'post_tag'),
+    getPostMeta(id, '_seo_title', true) as Promise<string>,
+    getPostMeta(id, '_seo_description', true) as Promise<string>,
+    getPostMeta(id, '_seo_canonical', true) as Promise<string>,
+    getPostMeta(id, '_seo_noindex', true) as Promise<string>,
+    getPostMeta(id, '_seo_og_image_url', true) as Promise<string>,
   ])
 
   let featuredImageUrl = ''
@@ -63,6 +69,13 @@ export default async function EditPostPage({ params }: Props) {
       initialCategoryIds={postCategories.map((c) => c.termTaxonomyId)}
       tags={allTags}
       initialTagNames={postTags.map((t) => t.name)}
+      seoMeta={{
+        seoTitle: seoTitle as string,
+        seoDescription: seoDescription as string,
+        seoCanonical: seoCanonical as string,
+        seoNoindex: (seoNoindexRaw as string) === '1',
+        seoOgImageUrl: seoOgImageUrl as string,
+      }}
     />
   )
 }
