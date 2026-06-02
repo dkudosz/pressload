@@ -12,6 +12,8 @@ import {
   Palette,
   Settings,
   LogOut,
+  MessageSquare,
+  UserCircle,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -24,10 +26,12 @@ const NAV_ITEMS = [
   { href: '/posts', label: 'Posts', icon: FileText },
   { href: '/pages', label: 'Pages', icon: File },
   { href: '/media', label: 'Media', icon: Image },
+  { href: '/comments', label: 'Comments', icon: MessageSquare },
   { href: '/users', label: 'Users', icon: Users },
   { href: '/plugins', label: 'Plugins', icon: Puzzle },
   { href: '/themes', label: 'Themes', icon: Palette },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/profile', label: 'Profile', icon: UserCircle },
 ]
 
 interface SidebarProps {
