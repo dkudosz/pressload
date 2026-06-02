@@ -1,0 +1,10 @@
+{
+  "name": "pressload-seo",
+  "version": "1.0.0",
+  "description": "SEO enhancements for Pressload — JSON-LD structured data, global defaults, and OG tag generation.",
+  "author": "Pressload",
+  "entry": "./index.js",
+  "adminPages": [
+    { "slug": "seo", "label": "SEO", "icon": "search" }
+  ]
+}

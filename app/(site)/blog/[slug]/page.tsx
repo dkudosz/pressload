@@ -10,6 +10,7 @@ import { sanitizeHtml } from '@/lib/utils/sanitize'
 import { CommentForm } from '@/components/site/comment-form'
 import { getPostMeta } from '@/lib/postmeta'
 import { getOption } from '@/lib/options'
+import { hooks } from '@/lib/hooks'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -162,7 +163,34 @@ export default async function BlogPostPage({ params }: Props) {
 
   const commentTree = buildCommentTree(flatComments, null, 0)
 
+  // Let plugins add JSON-LD structured data
+  const siteUrl = await getOption('siteurl', process.env.NEXT_PUBLIC_APP_URL ?? '')
+  const [seoTitle, seoDescription, seoOgImageUrl] = await Promise.all([
+    getPostMeta(post.id, '_seo_title', true),
+    getPostMeta(post.id, '_seo_description', true),
+    getPostMeta(post.id, '_seo_og_image_url', true),
+  ])
+  const jsonLdSchemas = hooks.applyFilters('pressload.post.json_ld', [] as object[], {
+    id: post.id,
+    postTitle: post.postTitle,
+    postName: slug,
+    postExcerpt: post.postExcerpt,
+    postDate: post.postDate,
+    authorName: post.authorName,
+    siteUrl,
+    seoTitle: seoTitle as string,
+    seoDescription: seoDescription as string,
+    seoOgImageUrl: seoOgImageUrl as string,
+  })
+
   return (
+    <>
+    {jsonLdSchemas.length > 0 && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSchemas) }}
+      />
+    )}
     <article className="max-w-prose">
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">{post.postTitle}</h1>
@@ -240,5 +268,6 @@ export default async function BlogPostPage({ params }: Props) {
         )}
       </section>
     </article>
+    </>
   )
 }
