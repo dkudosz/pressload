@@ -4,10 +4,46 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth/config'
 import { db } from '@/lib/db'
-import { posts } from '@/lib/db/schema'
+import { posts, terms, termTaxonomy, termRelationships } from '@/lib/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { slugify } from '@/lib/utils/slugify'
 import { updatePostMeta, deletePostMeta } from '@/lib/postmeta'
+import { assignTermsToPost } from '@/lib/actions/taxonomies'
+
+async function findOrCreateTag(name: string): Promise<string> {
+  const slug = slugify(name) || name.toLowerCase().replace(/\s+/g, '-')
+  const existing = await db
+    .select({ termTaxonomyId: termTaxonomy.termTaxonomyId })
+    .from(termTaxonomy)
+    .innerJoin(terms, eq(termTaxonomy.termId, terms.termId))
+    .where(and(eq(terms.slug, slug), eq(termTaxonomy.taxonomy, 'post_tag')))
+    .limit(1)
+
+  if (existing[0]) return existing[0].termTaxonomyId
+
+  const [term] = await db.insert(terms).values({ name: name.trim(), slug }).returning()
+  const [tt] = await db
+    .insert(termTaxonomy)
+    .values({ termId: term.termId, taxonomy: 'post_tag', count: 0 })
+    .returning()
+  return tt.termTaxonomyId
+}
+
+async function handleTaxonomy(postId: string, formData: FormData) {
+  const categoryIds = ((formData.get('categoryIds') as string) ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  await assignTermsToPost(postId, categoryIds, 'category')
+
+  const tagNamesRaw = (formData.get('tagNames') as string) ?? ''
+  const tagNames = tagNamesRaw.split(',').map((s) => s.trim()).filter(Boolean)
+  const tagTtIds: string[] = []
+  for (const name of tagNames) {
+    tagTtIds.push(await findOrCreateTag(name))
+  }
+  await assignTermsToPost(postId, tagTtIds, 'post_tag')
+}
 
 async function uniqueSlug(
   base: string,
@@ -119,6 +155,8 @@ export async function createPost(formData: FormData) {
     await deletePostMeta(post.id, '_thumbnail_id')
   }
 
+  await handleTaxonomy(post.id, formData)
+
   revalidatePath(`/${postType}s`)
 
   const base = postType === 'page' ? '/pages' : '/posts'
@@ -173,6 +211,8 @@ export async function updatePost(id: string, formData: FormData) {
   } else {
     await deletePostMeta(id, '_thumbnail_id')
   }
+
+  await handleTaxonomy(id, formData)
 
   revalidatePath(`/${existing.postType}s`)
   revalidatePath(`/${existing.postType}s/${id}`)

@@ -4,6 +4,7 @@ import { posts } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { PostForm } from '@/components/admin/post-form'
 import { getPostMeta } from '@/lib/postmeta'
+import { getTerms, getPostTerms } from '@/lib/actions/taxonomies'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -25,11 +26,18 @@ export default async function EditPostPage({ params }: Props) {
     limit: 20,
   })
 
-  const thumbnailId = (await getPostMeta(id, '_thumbnail_id', true)) as string
+  const [thumbnailId, allCategories, allTags, postCategories, postTags] = await Promise.all([
+    getPostMeta(id, '_thumbnail_id', true) as Promise<string>,
+    getTerms('category'),
+    getTerms('post_tag'),
+    getPostTerms(id, 'category'),
+    getPostTerms(id, 'post_tag'),
+  ])
+
   let featuredImageUrl = ''
   if (thumbnailId) {
     const thumb = await db.query.posts.findFirst({
-      where: and(eq(posts.id, thumbnailId), eq(posts.postType, 'attachment')),
+      where: and(eq(posts.id, thumbnailId as string), eq(posts.postType, 'attachment')),
       columns: { guid: true },
     })
     featuredImageUrl = thumb?.guid ?? ''
@@ -49,8 +57,12 @@ export default async function EditPostPage({ params }: Props) {
         postDate: post.postDate,
       }}
       revisions={revisions}
-      featuredImageId={thumbnailId || undefined}
+      featuredImageId={thumbnailId as string || undefined}
       featuredImageUrl={featuredImageUrl || undefined}
+      categories={allCategories}
+      initialCategoryIds={postCategories.map((c) => c.termTaxonomyId)}
+      tags={allTags}
+      initialTagNames={postTags.map((t) => t.name)}
     />
   )
 }

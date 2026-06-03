@@ -14,7 +14,7 @@ Pressload is a WordPress-parity CMS built on Next.js 16 (App Router), TypeScript
 | Database | PostgreSQL (Supabase) via Drizzle ORM |
 | Auth | NextAuth.js v5 (Auth.js) |
 | Editor | TipTap (Phase 2) |
-| Storage | Supabase Storage (Phase 3) |
+| Storage | Local filesystem (`uploads/` dir, served via `/api/uploads/`) |
 | Email | Resend (Phase 4+) |
 
 ## Repository Structure
@@ -186,7 +186,7 @@ All 12 `pl_` tables defined in `lib/db/schema.ts`:
 ## Environment Variables
 
 Required: `DATABASE_URL`, `AUTH_SECRET`  
-Optional: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`
+Optional: `NEXT_PUBLIC_APP_URL`, `UPLOADS_DIR` (default: `./uploads`), `RESEND_API_KEY`
 
 Copy `.env.local.example` to `.env.local` and fill in values. `lib/env.ts` validates them at startup.
 

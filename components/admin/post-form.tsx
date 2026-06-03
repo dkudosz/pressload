@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition, useEffect } from 'react'
+import { useRef, useState, useTransition, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { JSONContent } from '@tiptap/react'
@@ -10,14 +10,16 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, ImageIcon, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, ImageIcon, RotateCcw, X, Plus } from 'lucide-react'
 import { createPost, updatePost, restoreRevision } from '@/lib/actions/posts'
+import { createTerm } from '@/lib/actions/taxonomies'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { Editor } from '@/components/editor/Editor'
 import type { SaveStatus } from '@/components/editor/Editor'
 import { MediaPicker } from '@/components/admin/MediaPicker'
 import type { MediaItem } from '@/lib/actions/media'
+import type { TermOption } from '@/lib/actions/taxonomies'
 
 type PostStatus = 'draft' | 'publish' | 'pending' | 'private'
 
@@ -42,6 +44,10 @@ interface PostFormProps {
   revisions?: Revision[]
   featuredImageId?: string
   featuredImageUrl?: string
+  categories?: TermOption[]
+  initialCategoryIds?: string[]
+  tags?: TermOption[]
+  initialTagNames?: string[]
 }
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'outline' }> = {
@@ -52,7 +58,17 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
   trash:   { label: 'Trash',     variant: 'destructive' as any },
 }
 
-export function PostForm({ postType, post, revisions = [], featuredImageId: initialFeaturedImageId, featuredImageUrl: initialFeaturedImageUrl }: PostFormProps) {
+export function PostForm({
+  postType,
+  post,
+  revisions = [],
+  featuredImageId: initialFeaturedImageId,
+  featuredImageUrl: initialFeaturedImageUrl,
+  categories = [],
+  initialCategoryIds = [],
+  tags = [],
+  initialTagNames = [],
+}: PostFormProps) {
   const isEditing = !!post
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -76,6 +92,14 @@ export function PostForm({ postType, post, revisions = [], featuredImageId: init
   const [error, setError] = useState<string | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<SaveStatus>('idle')
 
+  // Taxonomy state
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategoryIds)
+  const [selectedTagNames, setSelectedTagNames] = useState<string[]>(initialTagNames)
+  const [tagInput, setTagInput] = useState('')
+  const [newCatName, setNewCatName] = useState('')
+  const [addingCat, setAddingCat] = useState(false)
+  const [localCategories, setLocalCategories] = useState<TermOption[]>(categories)
+
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Always-fresh snapshot of form values for the autosave timeout closure.
   const latestRef = useRef({ title, slug, contentHtml, contentJson, excerpt, status, publishDate })
@@ -98,7 +122,43 @@ export function PostForm({ postType, post, revisions = [], featuredImageId: init
     fd.set('postDate', publishDate)
     fd.set('postType', postType)
     fd.set('thumbnailId', featuredImageId)
+    fd.set('categoryIds', selectedCategoryIds.join(','))
+    fd.set('tagNames', selectedTagNames.join(','))
     return fd
+  }
+
+  function addTag(raw: string) {
+    const names = raw.split(',').map((s) => s.trim()).filter(Boolean)
+    setSelectedTagNames((prev) => {
+      const next = [...prev]
+      for (const n of names) {
+        if (!next.includes(n)) next.push(n)
+      }
+      return next
+    })
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(tagInput)
+      setTagInput('')
+    }
+  }
+
+  async function handleAddCategory() {
+    if (!newCatName.trim()) return
+    setAddingCat(true)
+    try {
+      const newTerm = await createTerm({ name: newCatName.trim(), taxonomy: 'category' })
+      setLocalCategories((prev) => [...prev, newTerm])
+      setSelectedCategoryIds((prev) => [...prev, newTerm.termTaxonomyId])
+      setNewCatName('')
+    } catch {
+      // ignore
+    } finally {
+      setAddingCat(false)
+    }
   }
 
   function handleEditorImageButtonClick(insertFn: (src: string, alt?: string) => void) {
@@ -399,6 +459,83 @@ export function PostForm({ postType, post, revisions = [], featuredImageId: init
             </CardContent>
           </Card>
 
+          {/* Categories (posts only) */}
+          {postType === 'post' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Categories</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {localCategories.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No categories yet.</p>
+                )}
+                {buildCategoryTree(localCategories, null).map((cat) =>
+                  renderCategoryNode(cat, localCategories, selectedCategoryIds, setSelectedCategoryIds, 0),
+                )}
+                <Separator className="my-2" />
+                <p className="text-xs font-medium text-muted-foreground">Add new category</p>
+                <div className="flex gap-1">
+                  <Input
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory() } }}
+                    placeholder="Category name"
+                    className="h-7 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2"
+                    onClick={handleAddCategory}
+                    disabled={addingCat || !newCatName.trim()}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tags (posts only) */}
+          {postType === 'post' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Tags</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {selectedTagNames.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTagNames.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTagNames((prev) => prev.filter((t) => t !== tag))}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  onBlur={() => { if (tagInput.trim()) { addTag(tagInput); setTagInput('') } }}
+                  placeholder="Add tags, comma-separated"
+                  className="h-7 text-xs"
+                />
+                <p className="text-xs text-muted-foreground">Separate with commas or Enter</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Revisions */}
           {isEditing && revisions.length > 0 && (
             <Card>
@@ -437,6 +574,47 @@ export function PostForm({ postType, post, revisions = [], featuredImageId: init
         onSelect={handleMediaPickerSelect}
         title={mediaPickerMode === 'featured' ? 'Set Featured Image' : 'Insert Image'}
       />
+    </div>
+  )
+}
+
+function buildCategoryTree(
+  cats: TermOption[],
+  parentId: string | null,
+): TermOption[] {
+  return cats.filter((c) => c.parentId === parentId)
+}
+
+function renderCategoryNode(
+  cat: TermOption,
+  allCats: TermOption[],
+  selectedIds: string[],
+  setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>,
+  depth: number,
+): React.ReactNode {
+  const children = buildCategoryTree(allCats, cat.termTaxonomyId)
+  const checked = selectedIds.includes(cat.termTaxonomyId)
+
+  return (
+    <div key={cat.termTaxonomyId} style={{ paddingLeft: depth * 16 }}>
+      <label className="flex items-center gap-2 cursor-pointer py-0.5">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedIds((prev) => [...prev, cat.termTaxonomyId])
+            } else {
+              setSelectedIds((prev) => prev.filter((id) => id !== cat.termTaxonomyId))
+            }
+          }}
+          className="h-3.5 w-3.5 rounded"
+        />
+        <span className="text-sm">{cat.name}</span>
+      </label>
+      {children.map((child) =>
+        renderCategoryNode(child, allCats, selectedIds, setSelectedIds, depth + 1),
+      )}
     </div>
   )
 }
