@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "An attempt on creating WordPress in NextJS and Payload.",
   "scripts": {
+    "setup": "node scripts/setup.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
