@@ -32,6 +32,7 @@ import type { SaveStatus } from './Editor'
 interface ToolbarProps {
   editor: TiptapEditor | null
   saveStatus: SaveStatus
+  onImageButtonClick?: (insertImage: (src: string, alt?: string) => void) => void
 }
 
 function Btn({
@@ -72,7 +73,7 @@ function Divider() {
   return <div className="mx-0.5 h-5 w-px bg-border" />
 }
 
-export function Toolbar({ editor, saveStatus }: ToolbarProps) {
+export function Toolbar({ editor, saveStatus, onImageButtonClick }: ToolbarProps) {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [showImageInput, setShowImageInput] = useState(false)
@@ -101,6 +102,10 @@ export function Toolbar({ editor, saveStatus }: ToolbarProps) {
     setImageUrl('')
   }
 
+  function insertImageFromMedia(src: string, alt?: string) {
+    editor!.chain().focus().setImage({ src, alt: alt ?? '' }).run()
+  }
+
   function openLinkPopover() {
     const existing = editor!.getAttributes('link').href ?? ''
     setLinkUrl(existing)
@@ -110,6 +115,12 @@ export function Toolbar({ editor, saveStatus }: ToolbarProps) {
   }
 
   function openImagePopover() {
+    if (onImageButtonClick) {
+      setShowLinkInput(false)
+      setShowImageInput(false)
+      onImageButtonClick(insertImageFromMedia)
+      return
+    }
     setImageUrl('')
     setShowLinkInput(false)
     setShowImageInput((v) => !v)

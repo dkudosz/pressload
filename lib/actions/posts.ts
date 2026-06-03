@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { posts } from '@/lib/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { slugify } from '@/lib/utils/slugify'
-import { updatePostMeta } from '@/lib/postmeta'
+import { updatePostMeta, deletePostMeta } from '@/lib/postmeta'
 
 async function uniqueSlug(
   base: string,
@@ -112,6 +112,13 @@ export async function createPost(formData: FormData) {
 
   await updatePostMeta(post.id, '_edit_last', session.user.id)
 
+  const thumbnailId = (formData.get('thumbnailId') as string) ?? ''
+  if (thumbnailId) {
+    await updatePostMeta(post.id, '_thumbnail_id', thumbnailId)
+  } else {
+    await deletePostMeta(post.id, '_thumbnail_id')
+  }
+
   revalidatePath(`/${postType}s`)
 
   const base = postType === 'page' ? '/pages' : '/posts'
@@ -159,6 +166,13 @@ export async function updatePost(id: string, formData: FormData) {
     .where(eq(posts.id, id))
 
   await updatePostMeta(id, '_edit_last', session.user.id)
+
+  const thumbnailId = (formData.get('thumbnailId') as string) ?? ''
+  if (thumbnailId) {
+    await updatePostMeta(id, '_thumbnail_id', thumbnailId)
+  } else {
+    await deletePostMeta(id, '_thumbnail_id')
+  }
 
   revalidatePath(`/${existing.postType}s`)
   revalidatePath(`/${existing.postType}s/${id}`)
