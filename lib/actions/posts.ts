@@ -29,6 +29,17 @@ async function findOrCreateTag(name: string): Promise<string> {
   return tt.termTaxonomyId
 }
 
+async function handleSeoMeta(postId: string, formData: FormData) {
+  const fields: [string, string][] = [
+    ['_seo_title', (formData.get('seoTitle') as string) ?? ''],
+    ['_seo_description', (formData.get('seoDescription') as string) ?? ''],
+    ['_seo_canonical', (formData.get('seoCanonical') as string) ?? ''],
+    ['_seo_noindex', (formData.get('seoNoindex') as string) ?? '0'],
+    ['_seo_og_image_url', (formData.get('seoOgImageUrl') as string) ?? ''],
+  ]
+  await Promise.all(fields.map(([k, v]) => updatePostMeta(postId, k, v)))
+}
+
 async function handleTaxonomy(postId: string, formData: FormData) {
   const categoryIds = ((formData.get('categoryIds') as string) ?? '')
     .split(',')
@@ -156,6 +167,7 @@ export async function createPost(formData: FormData) {
   }
 
   await handleTaxonomy(post.id, formData)
+  await handleSeoMeta(post.id, formData)
 
   revalidatePath(`/${postType}s`)
 
@@ -213,6 +225,7 @@ export async function updatePost(id: string, formData: FormData) {
   }
 
   await handleTaxonomy(id, formData)
+  await handleSeoMeta(id, formData)
 
   revalidatePath(`/${existing.postType}s`)
   revalidatePath(`/${existing.postType}s/${id}`)

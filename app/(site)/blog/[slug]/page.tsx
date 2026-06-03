@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { db } from '@/lib/db'
@@ -7,9 +8,50 @@ import { posts, users, terms, termTaxonomy, termRelationships, comments } from '
 import { eq, and, asc } from 'drizzle-orm'
 import { sanitizeHtml } from '@/lib/utils/sanitize'
 import { CommentForm } from '@/components/site/comment-form'
+import { getPostMeta } from '@/lib/postmeta'
+import { getOption } from '@/lib/options'
 
 interface Props {
   params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const result = await db
+    .select({ id: posts.id, postTitle: posts.postTitle, postExcerpt: posts.postExcerpt })
+    .from(posts)
+    .where(and(eq(posts.postName, slug), eq(posts.postType, 'post'), eq(posts.postStatus, 'publish')))
+    .limit(1)
+
+  const post = result[0]
+  if (!post) return {}
+
+  const [seoTitle, seoDescription, seoNoindex, seoOgImageUrl, seoCanonical, siteUrl] = await Promise.all([
+    getPostMeta(post.id, '_seo_title', true) as Promise<string>,
+    getPostMeta(post.id, '_seo_description', true) as Promise<string>,
+    getPostMeta(post.id, '_seo_noindex', true) as Promise<string>,
+    getPostMeta(post.id, '_seo_og_image_url', true) as Promise<string>,
+    getPostMeta(post.id, '_seo_canonical', true) as Promise<string>,
+    getOption('siteurl', process.env.NEXT_PUBLIC_APP_URL ?? ''),
+  ])
+
+  const title = (seoTitle as string) || post.postTitle
+  const description = (seoDescription as string) || post.postExcerpt || undefined
+  const robots = (seoNoindex as string) === '1' ? 'noindex' : 'index, follow'
+  const canonical = (seoCanonical as string) || `${siteUrl}/blog/${slug}`
+
+  return {
+    title,
+    description,
+    robots,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      images: (seoOgImageUrl as string) ? [{ url: seoOgImageUrl as string }] : undefined,
+    },
+  }
 }
 
 interface CommentNode {

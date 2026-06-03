@@ -48,6 +48,13 @@ interface PostFormProps {
   initialCategoryIds?: string[]
   tags?: TermOption[]
   initialTagNames?: string[]
+  seoMeta?: {
+    seoTitle: string
+    seoDescription: string
+    seoCanonical: string
+    seoNoindex: boolean
+    seoOgImageUrl: string
+  }
 }
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'outline' }> = {
@@ -68,6 +75,7 @@ export function PostForm({
   initialCategoryIds = [],
   tags = [],
   initialTagNames = [],
+  seoMeta,
 }: PostFormProps) {
   const isEditing = !!post
   const router = useRouter()
@@ -91,6 +99,13 @@ export function PostForm({
   const insertImageCallbackRef = useRef<((src: string, alt?: string) => void) | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [autosaveStatus, setAutosaveStatus] = useState<SaveStatus>('idle')
+
+  // SEO state
+  const [seoTitle, setSeoTitle] = useState(seoMeta?.seoTitle ?? '')
+  const [seoDescription, setSeoDescription] = useState(seoMeta?.seoDescription ?? '')
+  const [seoCanonical, setSeoCanonical] = useState(seoMeta?.seoCanonical ?? '')
+  const [seoNoindex, setSeoNoindex] = useState(seoMeta?.seoNoindex ?? false)
+  const [seoOgImageUrl, setSeoOgImageUrl] = useState(seoMeta?.seoOgImageUrl ?? '')
 
   // Taxonomy state
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategoryIds)
@@ -124,6 +139,11 @@ export function PostForm({
     fd.set('thumbnailId', featuredImageId)
     fd.set('categoryIds', selectedCategoryIds.join(','))
     fd.set('tagNames', selectedTagNames.join(','))
+    fd.set('seoTitle', seoTitle)
+    fd.set('seoDescription', seoDescription)
+    fd.set('seoCanonical', seoCanonical)
+    fd.set('seoNoindex', seoNoindex ? '1' : '0')
+    fd.set('seoOgImageUrl', seoOgImageUrl)
     return fd
   }
 
@@ -456,6 +476,63 @@ export function PostForm({
                   Set Featured Image
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          {/* SEO */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">SEO</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">SEO Title</label>
+                <input
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                  placeholder={title || 'Page title'}
+                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Meta Description</label>
+                <textarea
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  placeholder="Brief description for search engines…"
+                  className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                />
+                <p className={`text-xs ${seoDescription.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {seoDescription.length}/160
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Canonical URL</label>
+                <input
+                  value={seoCanonical}
+                  onChange={(e) => setSeoCanonical(e.target.value)}
+                  placeholder="https://example.com/post-slug"
+                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">OG Image URL</label>
+                <input
+                  value={seoOgImageUrl}
+                  onChange={(e) => setSeoOgImageUrl(e.target.value)}
+                  placeholder="https://example.com/og.jpg"
+                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={seoNoindex}
+                  onChange={(e) => setSeoNoindex(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded"
+                />
+                <span className="text-xs">Noindex (exclude from search engines)</span>
+              </label>
             </CardContent>
           </Card>
 
