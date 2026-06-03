@@ -9,11 +9,11 @@ export interface QueryParams {
 }
 
 export function parseQueryParams(searchParams: URLSearchParams): QueryParams {
-  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
-  const perPage = Math.min(
-    100,
-    Math.max(1, parseInt(searchParams.get('per_page') ?? '10', 10) || 10),
-  )
+  const pageRaw = parseInt(searchParams.get('page') ?? '', 10)
+  const page = Math.max(1, isNaN(pageRaw) ? 1 : pageRaw)
+
+  const perPageRaw = parseInt(searchParams.get('per_page') ?? '', 10)
+  const perPage = Math.min(100, Math.max(1, isNaN(perPageRaw) ? 10 : perPageRaw))
   const fieldsStr = searchParams.get('fields')
   const fields = fieldsStr
     ? fieldsStr.split(',').map((f) => f.trim()).filter(Boolean)
