@@ -1,24 +1,46 @@
 import { getToken } from 'next-auth/jwt'
 import { NextResponse, type NextRequest } from 'next/server'
+import { checkRateLimit } from '@/lib/api/rate-limit'
 
 const PROTECTED_PATHS = [
   '/dashboard',
   '/posts',
   '/pages',
   '/media',
+  '/comments',
   '/users',
   '/plugins',
   '/themes',
   '/settings',
+  '/profile',
 ]
 
+// Auth routes: 20 attempts per 10 minutes per IP
+const AUTH_RATE_LIMIT = { limit: 20, windowMs: 10 * 60 * 1000 }
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Rate-limit authentication endpoints
+  if (pathname.startsWith('/api/auth/callback') || pathname === '/api/auth/signin') {
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      'unknown'
+
+    if (!checkRateLimit(`auth:${ip}`, AUTH_RATE_LIMIT)) {
+      return new NextResponse('Too Many Requests', {
+        status: 429,
+        headers: { 'Retry-After': '600' },
+      })
+    }
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
   })
 
-  const { pathname } = request.nextUrl
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p))
 
   if (isProtected && !token) {
@@ -36,5 +58,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|install).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
