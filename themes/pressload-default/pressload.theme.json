@@ -1,0 +1,22 @@
+{
+  "name": "pressload-default",
+  "version": "1.0.0",
+  "description": "The clean, minimal default theme for Pressload. Responsive typography, light/dark mode support.",
+  "author": "Pressload",
+  "screenshot": "/themes/pressload-default/screenshot.png",
+  "locations": ["primary", "footer", "social"],
+  "supports": [
+    "featured-image",
+    "custom-logo",
+    "custom-background",
+    "editor-styles",
+    "responsive-embeds"
+  ],
+  "templates": {
+    "index": "templates/index",
+    "single": "templates/single",
+    "page": "templates/page",
+    "archive": "templates/archive",
+    "404": "templates/404"
+  }
+}
