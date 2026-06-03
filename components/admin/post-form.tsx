@@ -1,8 +1,9 @@
 'use client'
 
-import { useTransition, useState, useEffect } from 'react'
+import { useRef, useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import type { JSONContent } from '@tiptap/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,9 +11,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, RotateCcw } from 'lucide-react'
-import { createPost, updatePost, publishPost, restoreRevision } from '@/lib/actions/posts'
+import { createPost, updatePost, restoreRevision } from '@/lib/actions/posts'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
+import { Editor } from '@/components/editor/Editor'
+import type { SaveStatus } from '@/components/editor/Editor'
 
 type PostStatus = 'draft' | 'publish' | 'pending' | 'private'
 
@@ -28,6 +31,7 @@ interface PostFormProps {
     id: string
     postTitle: string
     postContent: string | null
+    postContentJson: unknown
     postExcerpt: string | null
     postName: string
     postStatus: string
@@ -52,30 +56,70 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
   const [title, setTitle] = useState(post?.postTitle ?? '')
   const [slug, setSlug] = useState(post?.postName ?? '')
   const [slugEdited, setSlugEdited] = useState(isEditing)
-  const [content, setContent] = useState(post?.postContent ?? '')
+  const [contentHtml, setContentHtml] = useState(post?.postContent ?? '')
+  const [contentJson, setContentJson] = useState<JSONContent | null>(
+    (post?.postContentJson as JSONContent) ?? null,
+  )
   const [excerpt, setExcerpt] = useState(post?.postExcerpt ?? '')
   const [status, setStatus] = useState<PostStatus>((post?.postStatus as PostStatus) ?? 'draft')
   const [publishDate, setPublishDate] = useState(
     post?.postDate ? new Date(post.postDate).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
   )
   const [error, setError] = useState<string | null>(null)
+  const [autosaveStatus, setAutosaveStatus] = useState<SaveStatus>('idle')
+
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Always-fresh snapshot of form values for the autosave timeout closure.
+  const latestRef = useRef({ title, slug, contentHtml, contentJson, excerpt, status, publishDate })
+  useEffect(() => {
+    latestRef.current = { title, slug, contentHtml, contentJson, excerpt, status, publishDate }
+  })
 
   useEffect(() => {
-    if (!slugEdited) {
-      setSlug(slugify(title))
-    }
+    if (!slugEdited) setSlug(slugify(title))
   }, [title, slugEdited])
 
   function buildFormData(overrideStatus?: PostStatus): FormData {
     const fd = new FormData()
     fd.set('postTitle', title)
-    fd.set('postContent', content)
+    fd.set('postContent', contentHtml)
+    fd.set('postContentJson', contentJson ? JSON.stringify(contentJson) : '')
     fd.set('postExcerpt', excerpt)
     fd.set('postName', slug)
     fd.set('postStatus', overrideStatus ?? status)
     fd.set('postDate', publishDate)
     fd.set('postType', postType)
     return fd
+  }
+
+  function scheduleAutosave() {
+    if (!isEditing || !post) return
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(async () => {
+      const v = latestRef.current
+      const fd = new FormData()
+      fd.set('postTitle', v.title)
+      fd.set('postContent', v.contentHtml)
+      fd.set('postContentJson', v.contentJson ? JSON.stringify(v.contentJson) : '')
+      fd.set('postExcerpt', v.excerpt)
+      fd.set('postName', v.slug)
+      fd.set('postStatus', v.status)
+      fd.set('postDate', v.publishDate)
+      fd.set('postType', postType)
+      setAutosaveStatus('saving')
+      try {
+        await updatePost(post.id, fd)
+        setAutosaveStatus('saved')
+      } catch {
+        setAutosaveStatus('idle')
+      }
+    }, 30_000)
+  }
+
+  function handleEditorChange(json: JSONContent, html: string) {
+    setContentJson(json)
+    setContentHtml(html)
+    scheduleAutosave()
   }
 
   async function handleSave(overrideStatus?: PostStatus) {
@@ -195,15 +239,13 @@ export function PostForm({ postType, post, revisions = [] }: PostFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="postContent">Content</Label>
-                <textarea
-                  id="postContent"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write your content… (Block editor coming in Phase 2)"
-                  className="flex min-h-[320px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                <Label>Content</Label>
+                <Editor
+                  initialContent={contentJson}
+                  initialHtml={post?.postContent ?? undefined}
+                  onChange={handleEditorChange}
+                  saveStatus={autosaveStatus}
                 />
-                <p className="text-xs text-muted-foreground">Block editor replaces this in Phase 2.</p>
               </div>
             </CardContent>
           </Card>

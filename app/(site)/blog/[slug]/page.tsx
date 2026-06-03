@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { posts, users } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { sanitizeHtml } from '@/lib/utils/sanitize'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -55,7 +56,7 @@ export default async function BlogPostPage({ params }: Props) {
       {post.postContent ? (
         <div
           className="prose prose-neutral dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.postContent }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.postContent) }}
         />
       ) : (
         <p className="text-muted-foreground italic">No content yet.</p>
