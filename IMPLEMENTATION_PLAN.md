@@ -17,7 +17,7 @@
 | ORM | Drizzle ORM | TypeScript-native, lightweight, no magic |
 | Auth | NextAuth.js v5 (Auth.js) | Credentials + OAuth (Google, GitHub) |
 | Block editor | TipTap | Best React block editor, extensible, MIT licence |
-| File storage | Supabase Storage | S3-compatible, built into Supabase |
+| File storage | Local filesystem | Self-hosted, no extra service, WordPress-style uploads/ folder |
 | Email | Resend | Simple API, reliable delivery |
 | Payments | Stripe | For future hosted/premium plan |
 | Testing | Vitest + Playwright | Unit + E2E |
@@ -946,21 +946,29 @@ GET    /api/v1/menus/{location}
 
 ## Milestone Summary
 
-| Phase | What | Estimated Time | Cumulative |
-|-------|------|---------------|------------|
-| 0 | Foundation setup + **installer + full DB schema** | 1 week | Week 1 |
-| 1 | Post & Page CRUD | 2–3 weeks | Week 4 |
-| 2 | Block editor | 2–3 weeks | Week 7 |
-| 3 | Media library | 1–2 weeks | Week 9 |
-| 4 | Taxonomies, Users, Comments | 2 weeks | Week 11 |
-| 5 | Settings, Menus, SEO | 1–2 weeks | Week 13 |
-| 6 | Plugin & Theme system | 2–3 weeks | Week 16 |
-| 7 | REST API | 1–2 weeks | Week 18 |
-| 8 | Polish, Testing, v1.0 | 2–3 weeks | Week 20–21 |
+| Phase | What | Status | Branch |
+|-------|------|--------|--------|
+| 0 | Foundation — Tailwind, shadcn/ui, Drizzle, NextAuth, installer, admin shell | ✅ Done | `feature/phase-0-foundation` |
+| 1 | Post & Page CRUD — list, edit, publish, public rendering, revisions | ✅ Done | `feature/phase-1-post-crud` |
+| 2 | Block editor — TipTap, toolbar, image upload, autosave | ✅ Done | `feature/phase-2-block-editor` |
+| 3 | Media library — local filesystem storage, upload, image resizing, featured image picker | ✅ Done | `feature/phase-3-media-library` |
+| 4 | Taxonomies, Users & Comments — categories/tags, user CRUD, comment moderation, public comment form | ✅ Done | `feature/phase-4-taxonomies-users-comments` |
+| 5 | Settings, Menus & SEO — options API, settings pages, menu builder, per-post SEO fields, robots.txt, sitemap | ✅ Done | `feature/phase-5-settings-menus-seo` |
+| 6 | Plugin & Theme system — hook API, plugin/theme loader, pressload-seo plugin, pressload-default theme, JSON-LD | ✅ Done | `feature/phase-6-plugin-theme-system` |
+| 7 | REST API — 13 endpoints, Bearer + session auth, API keys, webhooks, field selection, pagination | ✅ Done | `feature/phase-7-rest-api` |
+| 8 | Polish, Testing & v1.0 — tests, security audit, CI, docs, release | 🔜 Next | — |
 
-**Total: approximately 5 months to v1.0 at a sustainable solo pace.**
+### What Phase 8 covers
 
-If working full-time on Pressload alone: closer to 3–3.5 months.
+- **Unit tests** (Vitest) — lib functions, server actions, API handlers. Target: 80%+ coverage
+- **E2E tests** (Playwright) — create post → publish → view on public site; login/logout; media upload; comment flow
+- **Lighthouse audit** — target ≥ 90 on public site
+- **Security review** — CSRF on mutations, XSS on rendered content (DOMPurify already in place), rate limiting on auth routes, API key rotation
+- **CONTRIBUTING.md** — how to write plugins, themes, and contribute to core
+- **CHANGELOG.md** — v0.1 → v1.0 history
+- **README update** — full setup guide, REST API reference, plugin/theme dev docs
+- **GitHub Actions CI** — lint, typecheck, unit tests, build on every PR
+- **v1.0 release** — git tag, GitHub release notes
 
 ---
 
@@ -982,7 +990,7 @@ If working full-time on Pressload alone: closer to 3–3.5 months.
 
 - **TipTap over building a custom block editor** — saves 6–8 weeks of work, covers 95% of the use case
 - **Drizzle over Prisma** — lighter, TypeScript-native, SQL is explicit and readable
-- **Supabase Storage over S3** — already using Supabase for DB and auth; no extra vendor
+- **Local filesystem storage** — files stored in uploads/ directory, served via Next.js route handler. Zero extra services, self-hostable, WordPress-parity (wp-content/uploads/ equivalent)
 - **Server Actions for mutations** — no separate API layer needed for admin CRUD in v1
 - **No Redux/Zustand** — React state + Server Actions + React Query where needed
 - **Plugin/theme system deferred to Phase 6** — get core CMS solid first

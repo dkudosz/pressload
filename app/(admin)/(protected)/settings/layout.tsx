@@ -7,6 +7,7 @@ const SETTINGS_NAV = [
   { href: '/settings/discussion', label: 'Discussion' },
   { href: '/settings/permalinks', label: 'Permalinks' },
   { href: '/settings/menus', label: 'Menus' },
+  { href: '/settings/api', label: 'API & Webhooks' },
 ]
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {

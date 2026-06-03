@@ -9,6 +9,7 @@ import { eq, and, ne } from 'drizzle-orm'
 import { slugify } from '@/lib/utils/slugify'
 import { updatePostMeta, deletePostMeta } from '@/lib/postmeta'
 import { assignTermsToPost } from '@/lib/actions/taxonomies'
+import { fireWebhook } from '@/lib/api/webhooks'
 
 async function findOrCreateTag(name: string): Promise<string> {
   const slug = slugify(name) || name.toLowerCase().replace(/\s+/g, '-')
@@ -168,6 +169,7 @@ export async function createPost(formData: FormData) {
 
   await handleTaxonomy(post.id, formData)
   await handleSeoMeta(post.id, formData)
+  fireWebhook('post.created', { id: post.id, slug: post.postName, status: post.postStatus }).catch(() => {})
 
   revalidatePath(`/${postType}s`)
 
@@ -226,6 +228,7 @@ export async function updatePost(id: string, formData: FormData) {
 
   await handleTaxonomy(id, formData)
   await handleSeoMeta(id, formData)
+  fireWebhook('post.updated', { id, slug: slug ?? existing.postName, status }).catch(() => {})
 
   revalidatePath(`/${existing.postType}s`)
   revalidatePath(`/${existing.postType}s/${id}`)
@@ -252,6 +255,7 @@ export async function deletePost(id: string) {
       .where(eq(posts.id, id))
   }
 
+  fireWebhook('post.deleted', { id, type: post.postType }).catch(() => {})
   revalidatePath(`/${post.postType}s`)
 }
 

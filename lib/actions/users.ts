@@ -7,6 +7,11 @@ import { db } from '@/lib/db'
 import { users, usermeta } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { createHash, randomBytes } from 'crypto'
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex')
+}
 
 export type UserRole = 'administrator' | 'editor' | 'author' | 'contributor' | 'subscriber'
 
@@ -259,4 +264,30 @@ export async function updateProfile(formData: FormData): Promise<void> {
   await setUserMeta(id, 'avatar_url', avatarUrl)
 
   revalidatePath('/profile')
+}
+
+export async function generateApiKey(): Promise<string> {
+  const session = await requireAuth()
+  const key = randomBytes(32).toString('hex')
+  const hash = hashApiKey(key)
+  await setUserMeta(session.user.id, 'api_key_hash', hash)
+  revalidatePath('/profile')
+  return key
+}
+
+export async function revokeApiKey(): Promise<void> {
+  const session = await requireAuth()
+  await db
+    .delete(usermeta)
+    .where(and(eq(usermeta.userId, session.user.id), eq(usermeta.metaKey, 'api_key_hash')))
+  revalidatePath('/profile')
+}
+
+export async function hasApiKey(): Promise<boolean> {
+  const session = await requireAuth()
+  const row = await db.query.usermeta.findFirst({
+    where: and(eq(usermeta.userId, session.user.id), eq(usermeta.metaKey, 'api_key_hash')),
+    columns: { umetaId: true },
+  })
+  return !!row
 }

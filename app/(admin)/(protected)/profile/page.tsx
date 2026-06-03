@@ -1,12 +1,11 @@
 import { auth } from '@/lib/auth/config'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getUserById } from '@/lib/actions/users'
-import { updateProfile } from '@/lib/actions/users'
+import { getUserById, updateProfile, hasApiKey } from '@/lib/actions/users'
+import { ApiKeySection } from '@/components/admin/api-key-section'
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -14,6 +13,8 @@ export default async function ProfilePage() {
 
   const user = await getUserById(session.user.id)
   if (!user) redirect('/signin')
+
+  const keyActive = await hasApiKey()
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -98,6 +99,8 @@ export default async function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      <ApiKeySection keyActive={keyActive} />
     </div>
   )
 }
