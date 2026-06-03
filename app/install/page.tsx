@@ -1,8 +1,35 @@
+import { redirect } from 'next/navigation'
 import { InstallStep1Form } from '@/components/install/step1-form'
+import { testDatabaseConnection, checkTablesExist, runMigrations } from './actions'
 
-export default function InstallPage() {
+export default async function InstallPage() {
   const dbUrl = process.env.DATABASE_URL ?? ''
 
+  // If DATABASE_URL is configured, try to auto-advance past the DB steps.
+  if (dbUrl) {
+    const { success } = await testDatabaseConnection(dbUrl)
+
+    if (success) {
+      const { exists } = await checkTablesExist(dbUrl)
+
+      if (exists) {
+        // DB connected + tables exist → jump straight to site setup
+        redirect('/install/setup')
+      } else {
+        // DB connected but tables missing → run migrations then go to setup
+        const result = await runMigrations()
+        if (result.success) {
+          redirect('/install/setup')
+        }
+        // If migrations failed, fall through and show the connection form
+        // so the user can diagnose the problem.
+      }
+    }
+    // DB configured but connection failed → fall through to show the form
+    // with the URL pre-filled so the user can correct it.
+  }
+
+  // Manual path: show the connection string form (step 1 of 4)
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-6">

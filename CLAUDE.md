@@ -1,6 +1,6 @@
 # Pressload — Claude Code Guide
 
-> **Status:** Phases 0–7 complete. Phase 8 (Testing & v1.0) is next.  
+> **Status:** Phases 0–8 complete. Zero-config install (`npm run setup`) shipped. v1.0 ready.  
 > Keep this file updated whenever a new module, convention, or rule is introduced.
 
 ---
@@ -70,7 +70,10 @@ app/
     v1/                     REST API (see REST API section)
   robots.txt/route.ts       Dynamic robots.txt
   sitemap.xml/route.ts      Dynamic sitemap
-  install/                  4-step install wizard
+  install/                  Install wizard — auto-advances when DATABASE_URL is set
+                            page.tsx: detects DB state on load; if DB+tables exist →
+                            redirect /install/setup; if DB but no tables → run migrations
+                            then redirect; if no DB → show connection form
 components/
   ui/                       shadcn/ui (Button, Input, Card, Badge, Dialog…)
   admin/                    Admin components (Sidebar, PostForm, MediaLibraryClient,
@@ -134,6 +137,9 @@ themes/
     pressload.theme.json    Manifest (locations, supports, template map)
 instrumentation.ts          Next.js startup: calls initializePlugins()
 middleware.ts               Protects /admin/* routes
+scripts/
+  setup.js                  First-time installer CLI (node scripts/setup.js / npm run setup)
+                            Prompts for DB details, writes .env.local, runs migrations
 ```
 
 ---
@@ -454,6 +460,47 @@ import { cn } from '@/lib/utils'
 | `NEXT_PUBLIC_APP_URL` | — | `http://localhost:3000` | Used for absolute URLs |
 | `UPLOADS_DIR` | — | `./uploads` | Where uploaded files are stored |
 | `RESEND_API_KEY` | — | — | Email notifications for comments |
+
+Both required vars are written automatically by `npm run setup`. Never commit `.env.local`.
+
+---
+
+## Setup Script (`scripts/setup.js`)
+
+Entry point: `npm run setup` → `node scripts/setup.js`
+
+**What it does:**
+1. Detects OS (macOS / Linux / Windows)
+2. On macOS/Linux — offers to auto-install PostgreSQL (Homebrew / apt) and create the DB + user
+3. On Windows / manual path — prompts for host, port, DB name, username, password
+4. Tests the connection (retries 3×)
+5. Prompts for site URL (default: `http://localhost:3000`)
+6. Writes `.env.local` with `DATABASE_URL`, `AUTH_SECRET` (auto-generated), `NEXT_PUBLIC_APP_URL`
+7. Runs `npx drizzle-kit migrate` (falls back to inline SQL if drizzle-kit fails)
+8. Prints next steps and attempts to open the browser
+
+**Key implementation notes:**
+- Uses only Node.js built-ins (`readline`, `child_process`, `crypto`, `fs`) — no extra deps
+- Skips re-setup if `.env.local` already has both required vars (prompts to confirm overwrite)
+- The `promptPassword` function hides input with `*` on TTY, falls back gracefully
+- DB auto-create uses `psql` with `CREATE USER` / `CREATE DATABASE` — failure is non-fatal
+
+---
+
+## Install Wizard (`app/install/`)
+
+The web installer runs at `/install` after `npm run dev`. Routing logic in `app/install/page.tsx`:
+
+| State on load | Action |
+|---------------|--------|
+| `DATABASE_URL` not set | Show connection form (step 1) |
+| DB connected, no tables | Run `runMigrations()` silently → redirect `/install/setup` |
+| DB connected, tables exist | Redirect `/install/setup` directly |
+| DB configured but unreachable | Fall through to connection form (URL pre-filled for debugging) |
+
+`/install/setup` collects site title, admin email, username, and password — then seeds `pl_options`, creates the admin user, and inserts a default "Hello World!" post and "Sample Page".
+
+After setup completes: redirect to `/install/success` → user logs in at `/admin/signin`.
 
 ---
 
